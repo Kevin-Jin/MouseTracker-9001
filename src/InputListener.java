@@ -1,3 +1,5 @@
+import java.awt.Point;
+
 import org.jnativehook.GlobalScreen;
 import org.jnativehook.keyboard.NativeKeyEvent;
 import org.jnativehook.keyboard.NativeKeyListener;
@@ -56,6 +58,10 @@ public class InputListener implements NativeKeyListener, NativeMouseInputListene
 
 	@Override
 	public void nativeMouseMoved(NativeMouseEvent e) {
+		int x = MathHelper.clampInt(e.getX(), 0, frame.getWidth());
+		int y = MathHelper.clampInt(e.getY(), 0, frame.getHeight());
+		frame.addPoint(new Point(x, y));
+		frame.repaint();
 		System.out.println("Mouse Moved: " + e.getX() + ", " + e.getY());
 	}
 
