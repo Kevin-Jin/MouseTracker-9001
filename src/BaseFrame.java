@@ -1,39 +1,24 @@
 import java.awt.AlphaComposite;
 import java.awt.Color;
-import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Toolkit;
 import java.awt.image.BufferedImage;
-import java.util.LinkedHashSet;
-import java.util.LinkedList;
+import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
 
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 
 public class BaseFrame extends JFrame {
-	private enum EventType { MOUSE_POSITION, LEFT_MOUSE_BUTTON, RIGHT_MOUSE_BUTTON, KEY_PRESS, KEY_RELEASE, NONE }
-
-	private static final long serialVersionUID = 1L;
-
 	private final InnerPanel innerPanel;
 	private volatile long startTime;
-	private BufferedImage mouseMovement, keyDisplay;
 
-	private final List<WithTime<Point>> mousePositions = new LinkedList<WithTime<Point>>();
-	private final List<WithTime<Boolean>> leftMouseButtonState = new LinkedList<WithTime<Boolean>>();
-	private final List<WithTime<Boolean>> rightMouseButtonState = new LinkedList<WithTime<Boolean>>();
-	private final List<WithTime<Character>> keysPressed = new LinkedList<WithTime<Character>>();
-	private final List<WithTime<Character>> keysReleased = new LinkedList<WithTime<Character>>();
-
-	private Point lastMousePosition;
-	private int mouseCursorSize;
-	private boolean leftMouseButtonHeld, rightMouseButtonHeld;
-	private Set<Character> lastKeysPressed = new LinkedHashSet<Character>();
+	private final List<Event> showing = new ArrayList<Event>();
+	private final List<Event> events = new ArrayList<Event>();
 
 	public BaseFrame() {
 		super("Y-Hack 2013");
@@ -41,87 +26,43 @@ public class BaseFrame extends JFrame {
 		setLocation(0, 0);
 		setBackground(new Color(0, 0, 0, 0));
 		setSize(Toolkit.getDefaultToolkit().getScreenSize());
-		setBackground(new Color(1.0f, 1.0f, 1.0f, 0.0f));
+		setBackground(new Color(1.0f, 1.0f, 1.0f, 0.5f));
 		innerPanel = new InnerPanel();
 		getContentPane().add(innerPanel);
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
-		mouseCursorSize = 0;
-		leftMouseButtonHeld = rightMouseButtonHeld = false;
-
-		mouseMovement = new BufferedImage(getWidth(), getHeight(), BufferedImage.TYPE_INT_ARGB);
-		keyDisplay = new BufferedImage(getWidth(), getHeight(), BufferedImage.TYPE_INT_ARGB);
-
 		startTime = System.currentTimeMillis();
 	}
 
-	public void addPoint(final Point p) {
+	public void mouseMoved(final Point p) {
 		final long time = System.currentTimeMillis() - startTime;
 		SwingUtilities.invokeLater(new Runnable() {
 			@Override
 			public void run() {
-				mousePositions.add(new WithTime<Point>(p, time));
+				events.add(new Event.MouseMoved(time, p));
 			}
 		});
 	}
 
-	public void addLeftMouseButtonPress() {
+	public void keyEvent(final int keycode, final boolean pressed) {
 		final long time = System.currentTimeMillis() - startTime;
 		SwingUtilities.invokeLater(new Runnable() {
 			@Override
 			public void run() {
-				leftMouseButtonState.add(new WithTime<Boolean>(Boolean.TRUE, time));
+				events.add(new Event.KeyChange(time, keycode, pressed));
 			}
 		});
 	}
 
-	public void addLeftMouseButtonRelease() {
+	public void mouseEvent(final int x, final int y, final boolean left, final boolean pressed) {
 		final long time = System.currentTimeMillis() - startTime;
 		SwingUtilities.invokeLater(new Runnable() {
 			@Override
 			public void run() {
-				leftMouseButtonState.add(new WithTime<Boolean>(Boolean.FALSE, time));
-			}
-		});
-	}
-
-	public void addRightMouseButtonPress() {
-		final long time = System.currentTimeMillis() - startTime;
-		SwingUtilities.invokeLater(new Runnable() {
-			@Override
-			public void run() {
-				rightMouseButtonState.add(new WithTime<Boolean>(Boolean.TRUE, time));
-			}
-		});
-	}
-
-	public void addRightMouseButtonRelease() {
-		final long time = System.currentTimeMillis() - startTime;
-		SwingUtilities.invokeLater(new Runnable() {
-			@Override
-			public void run() {
-				rightMouseButtonState.add(new WithTime<Boolean>(Boolean.FALSE, time));
-			}
-		});
-	}
-
-	public void addKeyPress(final char keyCode) {
-		final long time = System.currentTimeMillis() - startTime;
-		SwingUtilities.invokeLater(new Runnable() {
-			@Override
-			public void run() {
-				keysPressed.add(new WithTime<Character>(Character.valueOf(keyCode), time));
-				addKeyRelease(keyCode);
-			}
-		});
-	}
-
-	public void addKeyRelease(final char keyCode) {
-		final long time = System.currentTimeMillis() - startTime;
-		SwingUtilities.invokeLater(new Runnable() {
-			@Override
-			public void run() {
-				keysReleased.add(new WithTime<Character>(Character.valueOf(keyCode), time));
+				if (pressed)
+					events.add(new Event.MousePressed(time, new Point(x, y), left));
+				else
+					events.add(new Event.MouseReleased(time, new Point(x, y), left));
 			}
 		});
 	}
@@ -129,156 +70,39 @@ public class BaseFrame extends JFrame {
 	public void startPlayback() {
 		startTime = System.currentTimeMillis();
 		new Thread(new Runnable() {
-			private long getEarliest() {
-				long earliest = Long.MAX_VALUE;
-				if (leftMouseButtonHeld || rightMouseButtonHeld)
-					earliest = System.currentTimeMillis() - startTime + 16;
-				if (!mousePositions.isEmpty())
-					if (mousePositions.get(0).timestamp < earliest)
-						earliest = mousePositions.get(0).timestamp;
-				if (!leftMouseButtonState.isEmpty())
-					if (leftMouseButtonState.get(0).timestamp < earliest)
-						earliest = leftMouseButtonState.get(0).timestamp;
-				if (!rightMouseButtonState.isEmpty())
-					if (rightMouseButtonState.get(0).timestamp < earliest)
-						earliest = rightMouseButtonState.get(0).timestamp;
-				if (!keysPressed.isEmpty())
-					if (keysPressed.get(0).timestamp < earliest)
-						earliest = keysPressed.get(0).timestamp;
-				if (!keysReleased.isEmpty())
-					if (keysReleased.get(0).timestamp < earliest)
-						earliest = keysReleased.get(0).timestamp;
-				if (earliest != Long.MAX_VALUE)
-					return earliest;
-				return -1;
-			}
-
-			private EventType getEventType(long time) {
-				if (!mousePositions.isEmpty())
-					if (mousePositions.get(0).timestamp == time)
-						return EventType.MOUSE_POSITION;
-				if (!leftMouseButtonState.isEmpty())
-					if (leftMouseButtonState.get(0).timestamp == time)
-						return EventType.LEFT_MOUSE_BUTTON;
-				if (!rightMouseButtonState.isEmpty())
-					if (rightMouseButtonState.get(0).timestamp == time)
-						return EventType.RIGHT_MOUSE_BUTTON;
-				if (!keysPressed.isEmpty())
-					if (keysPressed.get(0).timestamp == time)
-						return EventType.KEY_PRESS;
-				if (!keysReleased.isEmpty())
-					if (keysReleased.get(0).timestamp == time)
-						return EventType.KEY_RELEASE;
-				return EventType.NONE;
-			}
-
-			@Override
 			public void run() {
-				long earliest;
-				while ((earliest = getEarliest()) != -1) {
+				while(!events.isEmpty()) {
+					long cur = events.get(0).timestamp;
 					long elapsed = System.currentTimeMillis() - startTime;
-					long sleepTime = earliest - elapsed;
 					try {
-						Thread.sleep(Math.max(0, sleepTime));
-					} catch (InterruptedException e) {
+						Thread.sleep(Math.max(0, cur-elapsed));
+					}
+					catch(InterruptedException e) {
 						e.printStackTrace();
 					}
-					switch (getEventType(earliest)) {
-						case MOUSE_POSITION:
-							if (lastMousePosition != null) {
-								Graphics g = mouseMovement.getGraphics();
-								Point cur = mousePositions.get(0).value;
-								g.drawLine(lastMousePosition.x, lastMousePosition.y, cur.x, cur.y);
-								g.dispose();
-								repaint();
-							}
-							lastMousePosition = mousePositions.remove(0).value;
-							break;
-						case LEFT_MOUSE_BUTTON:
-							leftMouseButtonHeld = leftMouseButtonState.remove(0).value.booleanValue();
-							break;
-						case RIGHT_MOUSE_BUTTON:
-							rightMouseButtonHeld = rightMouseButtonState.remove(0).value.booleanValue();
-							break;
-						case KEY_PRESS: {
-							lastKeysPressed.add(keysPressed.remove(0).value);
-							if (!lastKeysPressed.isEmpty()) {
-								Graphics2D g = (Graphics2D) keyDisplay.getGraphics();
-								g.setComposite(AlphaComposite.getInstance(AlphaComposite.CLEAR));
-								g.fillRect(0, 0, getWidth(), getHeight());
-								g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER));
-
-								StringBuilder sb = new StringBuilder();
-								for (Character keyChar : lastKeysPressed)
-									sb.append(keyChar.charValue());
-								g.setFont(new Font("Arial", Font.PLAIN, 36));
-								g.drawString(sb.toString(), (getWidth() - g.getFontMetrics().stringWidth(sb.toString())) / 2, (getHeight() - g.getFontMetrics().getHeight()) / 2);
-								g.dispose();
-								repaint();
-							}
-							break;
-						}
-						case KEY_RELEASE: {
-							lastKeysPressed.remove(keysReleased.remove(0).value);
-							if (!lastKeysPressed.isEmpty()) {
-								Graphics2D g = (Graphics2D) keyDisplay.getGraphics();
-								g.setComposite(AlphaComposite.getInstance(AlphaComposite.CLEAR));
-								g.fillRect(0, 0, getWidth(), getHeight());
-								g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER));
-
-								StringBuilder sb = new StringBuilder();
-								for (Character keyChar : lastKeysPressed)
-									sb.append(keyChar.charValue());
-								g.setFont(new Font("Arial", Font.PLAIN, 36));
-								g.drawString(sb.toString(), (getWidth() - g.getFontMetrics().stringWidth(sb.toString())) / 2, (getHeight() - g.getFontMetrics().getHeight()) / 2);
-								g.dispose();
-								repaint();
-							}
-							break;
-						}
-						case NONE:
-							break;
+					synchronized(showing) {
+						showing.add(events.remove(0));
 					}
-					if (leftMouseButtonHeld) {
-						mouseCursorSize = Math.min(mouseCursorSize + Math.max(17, (int) sleepTime), 1000);
-						repaint();
-					}
-					if (rightMouseButtonHeld) {
-						mouseCursorSize = Math.max(mouseCursorSize - Math.max(17, (int) sleepTime), 0);
-						repaint();
-					}
+					repaint();
 				}
 			}
 		}).start();
 	}
 
 	public void clearAll() {
+		startTime = System.currentTimeMillis();
 		SwingUtilities.invokeLater(new Runnable() {
 			@Override
 			public void run() {
-				mousePositions.clear();
-				leftMouseButtonState.clear();
-				rightMouseButtonState.clear();
-				keysPressed.clear();
-				keysReleased.clear();
-				leftMouseButtonHeld = rightMouseButtonHeld = false;
-				mouseCursorSize = 0;
-				lastKeysPressed.clear();
-
-				//clear the playback canvas
-				Graphics2D g2 = (Graphics2D) mouseMovement.getGraphics();
-				g2.setComposite(AlphaComposite.getInstance(AlphaComposite.CLEAR));
-				g2.fillRect(0, 0, getWidth(), getHeight());
-				g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER));
-
-				startTime = System.currentTimeMillis();
+				synchronized(showing) 
+					events.clear();
+					showing.clear();
+				}
 			}
 		});
 	}
 
 	private final class InnerPanel extends JPanel {
-		private static final long serialVersionUID = 1L;
-
 		public InnerPanel() {
 			setBackground(new Color(255, 255, 255));
 		}
@@ -287,17 +111,17 @@ public class BaseFrame extends JFrame {
 		public void paintComponent(Graphics g) {
 			g.setColor(new Color(0, 0, 0, 255 / 2));
 			g.fillRect(0, 0, getWidth(), getHeight());
-
-			g.drawImage(mouseMovement, 0, 0, null);
-			if (mouseCursorSize != 0) {
-				Graphics2D g2 = (Graphics2D) g;
-				g2.setColor(Color.black);
-				if (lastMousePosition != null)
-					g2.fillRect(lastMousePosition.x - mouseCursorSize / 50 / 2, lastMousePosition.y - mouseCursorSize / 50 / 2, mouseCursorSize / 50, mouseCursorSize / 50);
-				else
-					g2.fillRect(getWidth() - mouseCursorSize / 50 / 2, getHeight() - mouseCursorSize / 50 / 2, mouseCursorSize / 50, mouseCursorSize / 50);
+			long now = System.currentTimeMillis();
+			Point p = null;
+			synchronized(showing) {
+				for (Iterator<Event> it = showing.iterator(); it.hasNext(); ) {
+					Event event = it.next();
+					if (!event.draw((Graphics2D) g, now - startTime - event.timestamp, p))
+						it.remove();
+					if (event instanceof Event.MouseEvent)
+						p = ((Event.MouseEvent) event).p;
+				}
 			}
-			g.drawImage(keyDisplay, 0, 0, null);
 			g.dispose();
 		}
 	}

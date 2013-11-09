@@ -21,9 +21,9 @@ public class InputListener implements NativeKeyListener, NativeMouseInputListene
 		if (e.getKeyCode() == NativeKeyEvent.VK_ESCAPE) {
 			frame.dispose();
 			GlobalScreen.unregisterNativeHook();
-		} else {
-			//frame.addKeyRelease(e.getKeyCode());
 		}
+		else if (isRecording) 
+			frame.keyEvent(e.getKeyCode(), true);
 	}
 
 	@Override
@@ -40,61 +40,38 @@ public class InputListener implements NativeKeyListener, NativeMouseInputListene
 			isRecording = false;
 			isPlayingBack = !isPlayingBack;
 			if (isPlayingBack) {
-				frame.startPlayback();
 				frame.setVisible(true);
-			} else {
-				frame.setVisible(false);
+				frame.startPlayback();
 			}
 
 			System.out.println((isPlayingBack ? "START" : "STOP") + " PLAYING");
-		} else {
-			//frame.addKeyPress(e.getKeyCode());
 		}
+		else if (isRecording) 
+			frame.keyEvent(e.getKeyCode(), false);
 	}
 
 	@Override
-	public void nativeKeyTyped(NativeKeyEvent e) {
-		if (e.getKeyChar() != NativeKeyEvent.CHAR_UNDEFINED) {
-			frame.addKeyPress(e.getKeyChar());
-		}
-	}
+	public void nativeKeyTyped(NativeKeyEvent e) { }
 
 	@Override
-	public void nativeMouseClicked(NativeMouseEvent e) {
-		
-	}
+	public void nativeMouseClicked(NativeMouseEvent e) { }
 
 	@Override
 	public void nativeMousePressed(NativeMouseEvent e) {
-		switch (e.getButton()) {
-			case 1:
-				frame.addLeftMouseButtonPress();
-				break;
-			case 2:
-				frame.addRightMouseButtonPress();
-				break;
-		}
+		frame.mouseEvent(e.getX(), e.getY(), e.getButton() == NativeMouseEvent.BUTTON1, true);
 	}
 
 	@Override
 	public void nativeMouseReleased(NativeMouseEvent e) {
-		switch (e.getButton()) {
-			case 1:
-				frame.addLeftMouseButtonRelease();
-				break;
-			case 2:
-				frame.addRightMouseButtonRelease();
-				break;
-		}
+		frame.mouseEvent(e.getX(), e.getY(), e.getButton() == NativeMouseEvent.BUTTON1, false);
 	}
 
 	@Override
 	public void nativeMouseMoved(NativeMouseEvent e) {
-		int x = MathHelper.clampInt(e.getX(), 0, frame.getWidth() - 1);
-		int y = MathHelper.clampInt(e.getY(), 0, frame.getHeight() - 1);
 		if (isRecording) {
-			frame.addPoint(new Point(x, y));
-			frame.repaint();
+			int x = MathHelper.clampInt(e.getX(), 0, frame.getWidth() - 1);
+			int y = MathHelper.clampInt(e.getY(), 0, frame.getHeight() - 1);
+			frame.mouseMoved(new Point(x, y));
 		}
 	}
 
