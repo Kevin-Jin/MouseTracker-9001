@@ -30,6 +30,11 @@ public class InputListener implements NativeKeyListener, NativeMouseInputListene
 	public void nativeKeyReleased(NativeKeyEvent e) {
 		if (e.getKeyCode() == NativeKeyEvent.VK_F9) {
 			isRecording = !isRecording;
+			if (isRecording)
+				frame.clearAllAndMakeVisible();
+			else
+				frame.setVisible(false);
+
 			System.out.println((isRecording ? "START" : "STOP") + " RECORDING");
 		}
 
@@ -58,10 +63,12 @@ public class InputListener implements NativeKeyListener, NativeMouseInputListene
 
 	@Override
 	public void nativeMouseMoved(NativeMouseEvent e) {
-		int x = MathHelper.clampInt(e.getX(), 0, frame.getWidth());
-		int y = MathHelper.clampInt(e.getY(), 0, frame.getHeight());
-		frame.addPoint(new Point(x, y));
-		frame.repaint();
+		int x = MathHelper.clampInt(e.getX(), 0, frame.getWidth() - 1);
+		int y = MathHelper.clampInt(e.getY(), 0, frame.getHeight() - 1);
+		if (isRecording) {
+			frame.addPoint(new Point(x, y));
+			frame.repaint();
+		}
 		System.out.println("Mouse Moved: " + e.getX() + ", " + e.getY());
 	}
 
