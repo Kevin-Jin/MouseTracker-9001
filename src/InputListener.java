@@ -40,6 +40,8 @@ public class InputListener implements NativeKeyListener, NativeMouseInputListene
 			if (isPlayingBack) {
 				frame.startPlayback();
 				frame.setVisible(true);
+			} else {
+				frame.setVisible(false);
 			}
 
 			System.out.println((isPlayingBack ? "START" : "STOP") + " PLAYING");
@@ -58,12 +60,26 @@ public class InputListener implements NativeKeyListener, NativeMouseInputListene
 
 	@Override
 	public void nativeMousePressed(NativeMouseEvent e) {
-		
+		switch (e.getButton()) {
+			case 1:
+				frame.addLeftMouseButtonPress();
+				break;
+			case 2:
+				frame.addRightMouseButtonPress();
+				break;
+		}
 	}
 
 	@Override
 	public void nativeMouseReleased(NativeMouseEvent e) {
-		
+		switch (e.getButton()) {
+			case 1:
+				frame.addLeftMouseButtonRelease();
+				break;
+			case 2:
+				frame.addRightMouseButtonRelease();
+				break;
+		}
 	}
 
 	@Override

@@ -17,5 +17,9 @@ public class Main {
 		GlobalScreen.getInstance().addNativeKeyListener(listener);
 		GlobalScreen.getInstance().addNativeMouseListener(listener);
 		GlobalScreen.getInstance().addNativeMouseMotionListener(listener);
+
+		//must be done, otherwise the playback window does not gain focus
+		listener.frame.setVisible(true);
+		listener.frame.setVisible(false);
 	}
 }
