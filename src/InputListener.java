@@ -21,6 +21,8 @@ public class InputListener implements NativeKeyListener, NativeMouseInputListene
 		if (e.getKeyCode() == NativeKeyEvent.VK_ESCAPE) {
 			frame.dispose();
 			GlobalScreen.unregisterNativeHook();
+		} else {
+			//frame.addKeyRelease(e.getKeyCode());
 		}
 	}
 
@@ -45,12 +47,16 @@ public class InputListener implements NativeKeyListener, NativeMouseInputListene
 			}
 
 			System.out.println((isPlayingBack ? "START" : "STOP") + " PLAYING");
+		} else {
+			//frame.addKeyPress(e.getKeyCode());
 		}
 	}
 
 	@Override
 	public void nativeKeyTyped(NativeKeyEvent e) {
-		
+		if (e.getKeyChar() != NativeKeyEvent.CHAR_UNDEFINED) {
+			frame.addKeyPress(e.getKeyChar());
+		}
 	}
 
 	@Override

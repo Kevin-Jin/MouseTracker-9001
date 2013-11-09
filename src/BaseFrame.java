@@ -1,11 +1,12 @@
 import java.awt.AlphaComposite;
 import java.awt.Color;
+import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Toolkit;
 import java.awt.image.BufferedImage;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
@@ -21,18 +22,18 @@ public class BaseFrame extends JFrame {
 
 	private final InnerPanel innerPanel;
 	private volatile long startTime;
-	private BufferedImage mouseMovement;
+	private BufferedImage mouseMovement, keyDisplay;
 
 	private final List<WithTime<Point>> mousePositions = new LinkedList<WithTime<Point>>();
 	private final List<WithTime<Boolean>> leftMouseButtonState = new LinkedList<WithTime<Boolean>>();
 	private final List<WithTime<Boolean>> rightMouseButtonState = new LinkedList<WithTime<Boolean>>();
-	private final List<WithTime<Integer>> keysPressed = new LinkedList<WithTime<Integer>>();
-	private final List<WithTime<Integer>> keysReleased = new LinkedList<WithTime<Integer>>();
+	private final List<WithTime<Character>> keysPressed = new LinkedList<WithTime<Character>>();
+	private final List<WithTime<Character>> keysReleased = new LinkedList<WithTime<Character>>();
 
 	private Point lastMousePosition;
 	private int mouseCursorSize;
 	private boolean leftMouseButtonHeld, rightMouseButtonHeld;
-	private Set<Integer> lastKeysPressed = new HashSet<Integer>();
+	private Set<Character> lastKeysPressed = new LinkedHashSet<Character>();
 
 	public BaseFrame() {
 		super("Y-Hack 2013");
@@ -49,6 +50,7 @@ public class BaseFrame extends JFrame {
 		leftMouseButtonHeld = rightMouseButtonHeld = false;
 
 		mouseMovement = new BufferedImage(getWidth(), getHeight(), BufferedImage.TYPE_INT_ARGB);
+		keyDisplay = new BufferedImage(getWidth(), getHeight(), BufferedImage.TYPE_INT_ARGB);
 
 		startTime = System.currentTimeMillis();
 	}
@@ -99,6 +101,27 @@ public class BaseFrame extends JFrame {
 			@Override
 			public void run() {
 				rightMouseButtonState.add(new WithTime<Boolean>(Boolean.FALSE, time));
+			}
+		});
+	}
+
+	public void addKeyPress(final char keyCode) {
+		final long time = System.currentTimeMillis() - startTime;
+		SwingUtilities.invokeLater(new Runnable() {
+			@Override
+			public void run() {
+				keysPressed.add(new WithTime<Character>(Character.valueOf(keyCode), time));
+				addKeyRelease(keyCode);
+			}
+		});
+	}
+
+	public void addKeyRelease(final char keyCode) {
+		final long time = System.currentTimeMillis() - startTime;
+		SwingUtilities.invokeLater(new Runnable() {
+			@Override
+			public void run() {
+				keysReleased.add(new WithTime<Character>(Character.valueOf(keyCode), time));
 			}
 		});
 	}
@@ -163,11 +186,11 @@ public class BaseFrame extends JFrame {
 					switch (getEventType(earliest)) {
 						case MOUSE_POSITION:
 							if (lastMousePosition != null) {
-								Graphics bufG = mouseMovement.getGraphics();
+								Graphics g = mouseMovement.getGraphics();
 								Point cur = mousePositions.get(0).value;
-								bufG.drawLine(lastMousePosition.x, lastMousePosition.y, cur.x, cur.y);
+								g.drawLine(lastMousePosition.x, lastMousePosition.y, cur.x, cur.y);
+								g.dispose();
 								repaint();
-								bufG.dispose();
 							}
 							lastMousePosition = mousePositions.remove(0).value;
 							break;
@@ -177,10 +200,42 @@ public class BaseFrame extends JFrame {
 						case RIGHT_MOUSE_BUTTON:
 							rightMouseButtonHeld = rightMouseButtonState.remove(0).value.booleanValue();
 							break;
-						case KEY_PRESS:
+						case KEY_PRESS: {
+							lastKeysPressed.add(keysPressed.remove(0).value);
+							if (!lastKeysPressed.isEmpty()) {
+								Graphics2D g = (Graphics2D) keyDisplay.getGraphics();
+								g.setComposite(AlphaComposite.getInstance(AlphaComposite.CLEAR));
+								g.fillRect(0, 0, getWidth(), getHeight());
+								g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER));
+
+								StringBuilder sb = new StringBuilder();
+								for (Character keyChar : lastKeysPressed)
+									sb.append(keyChar.charValue());
+								g.setFont(new Font("Arial", Font.PLAIN, 36));
+								g.drawString(sb.toString(), (getWidth() - g.getFontMetrics().stringWidth(sb.toString())) / 2, (getHeight() - g.getFontMetrics().getHeight()) / 2);
+								g.dispose();
+								repaint();
+							}
 							break;
-						case KEY_RELEASE:
+						}
+						case KEY_RELEASE: {
+							lastKeysPressed.remove(keysReleased.remove(0).value);
+							if (!lastKeysPressed.isEmpty()) {
+								Graphics2D g = (Graphics2D) keyDisplay.getGraphics();
+								g.setComposite(AlphaComposite.getInstance(AlphaComposite.CLEAR));
+								g.fillRect(0, 0, getWidth(), getHeight());
+								g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER));
+
+								StringBuilder sb = new StringBuilder();
+								for (Character keyChar : lastKeysPressed)
+									sb.append(keyChar.charValue());
+								g.setFont(new Font("Arial", Font.PLAIN, 36));
+								g.drawString(sb.toString(), (getWidth() - g.getFontMetrics().stringWidth(sb.toString())) / 2, (getHeight() - g.getFontMetrics().getHeight()) / 2);
+								g.dispose();
+								repaint();
+							}
 							break;
+						}
 						case NONE:
 							break;
 					}
@@ -208,6 +263,7 @@ public class BaseFrame extends JFrame {
 				keysReleased.clear();
 				leftMouseButtonHeld = rightMouseButtonHeld = false;
 				mouseCursorSize = 0;
+				lastKeysPressed.clear();
 
 				//clear the playback canvas
 				Graphics2D g2 = (Graphics2D) mouseMovement.getGraphics();
@@ -241,7 +297,7 @@ public class BaseFrame extends JFrame {
 				else
 					g2.fillRect(getWidth() - mouseCursorSize / 50 / 2, getHeight() - mouseCursorSize / 50 / 2, mouseCursorSize / 50, mouseCursorSize / 50);
 			}
-
+			g.drawImage(keyDisplay, 0, 0, null);
 			g.dispose();
 		}
 	}
