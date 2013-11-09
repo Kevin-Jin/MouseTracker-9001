@@ -1,28 +1,22 @@
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.Point;
+import java.util.Set;
 
 public abstract class Event {
-	public final long timestamp;
-
-	public Event(long timestamp) {
-		this.timestamp = timestamp;
-	}
-
 	public abstract boolean draw(Graphics2D g, long dT, Object... args);
 
 	public static abstract class MouseEvent extends Event {
 		public final Point p;
 		
-		public MouseEvent(long time, Point p) {
-			super(time);
+		public MouseEvent(Point p) {
 			this.p = p;
 		}
 	}
 
 	public static class MouseMoved extends MouseEvent {
-		public MouseMoved(long time, Point p) {
-			super(time, p);
+		public MouseMoved(Point p) {
+			super(p);
 		}
 
 		@Override
@@ -42,8 +36,8 @@ public abstract class Event {
 	public static class MousePressed extends MouseEvent {
 		public final boolean left; 
 
-		public MousePressed(long time, Point p, boolean left) {
-			super(time, p);
+		public MousePressed(Point p, boolean left) {
+			super(p);
 			this.left = left;
 		}
 
@@ -59,8 +53,8 @@ public abstract class Event {
 	public static class MouseReleased extends MouseEvent {
 		public final boolean left; 
 
-		public MouseReleased(long time, Point p, boolean left) {
-			super(time, p);
+		public MouseReleased(Point p, boolean left) {
+			super(p);
 			this.left = left;
 		}
 
@@ -71,18 +65,19 @@ public abstract class Event {
 	}
 
 	public static class KeyChange extends Event {
+		private final Set<Integer> pressedKeys;
 		public final int key;
 		public final boolean pressed; //or release
 
-		public KeyChange(long time, int key, boolean pressed) {
-			super(time);
+		public KeyChange(int key, boolean pressed, Set<Integer> pressedKeys) {
+			this.pressedKeys = pressedKeys;
 			this.key = key;
 			this.pressed = pressed;
 		}
 
 		@Override
 		public boolean draw(Graphics2D g, long dT, Object... args) {
-			return true;
+			return pressed && pressedKeys.contains(Integer.valueOf(key));
 		}
 	}
 }

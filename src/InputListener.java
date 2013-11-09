@@ -19,11 +19,12 @@ public class InputListener implements NativeKeyListener, NativeMouseInputListene
 	@Override
 	public void nativeKeyPressed(NativeKeyEvent e) {
 		if (e.getKeyCode() == NativeKeyEvent.VK_ESCAPE) {
+			frame.clearAll();
 			frame.dispose();
 			GlobalScreen.unregisterNativeHook();
-		}
-		else if (isRecording) 
+		} else if (e.getKeyCode() != NativeKeyEvent.VK_F9 && e.getKeyCode() != NativeKeyEvent.VK_F8 && isRecording) {
 			frame.keyEvent(e.getKeyCode(), true);
+		}
 	}
 
 	@Override
@@ -47,9 +48,9 @@ public class InputListener implements NativeKeyListener, NativeMouseInputListene
 			}
 
 			System.out.println((isPlayingBack ? "START" : "STOP") + " PLAYING");
-		}
-		else if (isRecording) 
+		} else if (isRecording && e.getKeyCode() != NativeKeyEvent.VK_ESCAPE) {
 			frame.keyEvent(e.getKeyCode(), false);
+		}
 	}
 
 	@Override
