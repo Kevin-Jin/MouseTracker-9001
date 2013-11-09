@@ -1,24 +1,23 @@
-import java.awt.AlphaComposite;
 import java.awt.Color;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Toolkit;
-import java.awt.image.BufferedImage;
-import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentNavigableMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 
+@SuppressWarnings("serial")
 public class BaseFrame extends JFrame {
 	private final InnerPanel innerPanel;
 	private volatile long startTime;
 
-	private final List<Event> showing = new ArrayList<Event>();
-	private final List<Event> events = new ArrayList<Event>();
+	private final ConcurrentNavigableMap<Long, Event> events = new ConcurrentSkipListMap<Long, Event>();
 
 	public BaseFrame() {
 		super("Y-Hack 2013");
@@ -39,7 +38,7 @@ public class BaseFrame extends JFrame {
 		SwingUtilities.invokeLater(new Runnable() {
 			@Override
 			public void run() {
-				events.add(new Event.MouseMoved(time, p));
+				events.put(Long.valueOf(time), new Event.MouseMoved(time, p));
 			}
 		});
 	}
@@ -49,7 +48,7 @@ public class BaseFrame extends JFrame {
 		SwingUtilities.invokeLater(new Runnable() {
 			@Override
 			public void run() {
-				events.add(new Event.KeyChange(time, keycode, pressed));
+				events.put(Long.valueOf(time), new Event.KeyChange(time, keycode, pressed));
 			}
 		});
 	}
@@ -60,44 +59,35 @@ public class BaseFrame extends JFrame {
 			@Override
 			public void run() {
 				if (pressed)
-					events.add(new Event.MousePressed(time, new Point(x, y), left));
+					events.put(Long.valueOf(time), new Event.MousePressed(time, new Point(x, y), left));
 				else
-					events.add(new Event.MouseReleased(time, new Point(x, y), left));
+					events.put(Long.valueOf(time), new Event.MouseReleased(time, new Point(x, y), left));
 			}
 		});
 	}
 
 	public void startPlayback() {
-		startTime = System.currentTimeMillis();
 		new Thread(new Runnable() {
 			public void run() {
-				while(!events.isEmpty()) {
-					long cur = events.get(0).timestamp;
-					long elapsed = System.currentTimeMillis() - startTime;
+				startTime = System.currentTimeMillis();
+				while (!events.isEmpty()) {
+					repaint();
 					try {
-						Thread.sleep(Math.max(0, cur-elapsed));
-					}
-					catch(InterruptedException e) {
+						Thread.sleep(16);
+					} catch (InterruptedException e) {
 						e.printStackTrace();
 					}
-					synchronized(showing) {
-						showing.add(events.remove(0));
-					}
-					repaint();
 				}
 			}
 		}).start();
 	}
 
 	public void clearAll() {
-		startTime = System.currentTimeMillis();
 		SwingUtilities.invokeLater(new Runnable() {
 			@Override
 			public void run() {
-				synchronized(showing) 
-					events.clear();
-					showing.clear();
-				}
+				startTime = System.currentTimeMillis();
+				events.clear();
 			}
 		});
 	}
@@ -113,14 +103,12 @@ public class BaseFrame extends JFrame {
 			g.fillRect(0, 0, getWidth(), getHeight());
 			long now = System.currentTimeMillis();
 			Point p = null;
-			synchronized(showing) {
-				for (Iterator<Event> it = showing.iterator(); it.hasNext(); ) {
-					Event event = it.next();
-					if (!event.draw((Graphics2D) g, now - startTime - event.timestamp, p))
-						it.remove();
-					if (event instanceof Event.MouseEvent)
-						p = ((Event.MouseEvent) event).p;
-				}
+			for (Iterator<Map.Entry<Long, Event>> iter = events.headMap(Long.valueOf(System.currentTimeMillis() - startTime)).entrySet().iterator(); iter.hasNext(); ) {
+				Map.Entry<Long, Event> entry = iter.next();
+				if (!entry.getValue().draw((Graphics2D) g, Math.max(0, now - startTime - entry.getKey()), p))
+					iter.remove();
+				if (entry.getValue() instanceof Event.MouseEvent)
+					p = ((Event.MouseEvent) entry.getValue()).p;
 			}
 			g.dispose();
 		}

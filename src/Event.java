@@ -49,7 +49,7 @@ public abstract class Event {
 
 		@Override
 		public boolean draw(Graphics2D g, long dT, Object... args) {
-			int size = (int) Math.min(dT / 100, 30);
+			int size = (int) Math.min(dT / 30, 30);
 			size = 30 - size;
 			g.drawOval(p.x - size/2, p.y - size/2, size, size);
 			return size > 0;
