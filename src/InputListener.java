@@ -7,8 +7,9 @@ import org.jnativehook.mouse.NativeMouseEvent;
 import org.jnativehook.mouse.NativeMouseInputListener;
 
 public class InputListener implements NativeKeyListener, NativeMouseInputListener {
+	private final BaseFrame frame;
+
 	private boolean isRecording, isPlayingBack;
-	public final BaseFrame frame;
 
 	public InputListener() {
 		frame = new BaseFrame();
@@ -19,7 +20,7 @@ public class InputListener implements NativeKeyListener, NativeMouseInputListene
 	@Override
 	public void nativeKeyPressed(NativeKeyEvent e) {
 		if (e.getKeyCode() == NativeKeyEvent.VK_ESCAPE) {
-			frame.clearAll();
+			frame.endPlaybackAndReset();
 			frame.dispose();
 			GlobalScreen.unregisterNativeHook();
 		} else if (e.getKeyCode() != NativeKeyEvent.VK_F9 && e.getKeyCode() != NativeKeyEvent.VK_F8 && isRecording) {
@@ -31,21 +32,18 @@ public class InputListener implements NativeKeyListener, NativeMouseInputListene
 	public void nativeKeyReleased(NativeKeyEvent e) {
 		if (e.getKeyCode() == NativeKeyEvent.VK_F9) {
 			isPlayingBack = false;
-			frame.setVisible(false);
 			isRecording = !isRecording;
 			if (isRecording)
-				frame.clearAll();
+				frame.endPlaybackAndReset();
 
 			System.out.println((isRecording ? "START" : "STOP") + " RECORDING");
 		} else if (e.getKeyCode() == NativeKeyEvent.VK_F8) {
 			isRecording = false;
 			isPlayingBack = !isPlayingBack;
-			if (isPlayingBack) {
-				frame.setVisible(true);
+			if (isPlayingBack)
 				frame.startPlayback();
-			} else {
-				frame.setVisible(false);
-			}
+			else
+				frame.pausePlayback();
 
 			System.out.println((isPlayingBack ? "START" : "STOP") + " PLAYING");
 		} else if (isRecording && e.getKeyCode() != NativeKeyEvent.VK_ESCAPE) {
@@ -74,8 +72,8 @@ public class InputListener implements NativeKeyListener, NativeMouseInputListene
 	@Override
 	public void nativeMouseMoved(NativeMouseEvent e) {
 		if (isRecording) {
-			int x = MathHelper.clampInt(e.getX(), 0, frame.getWidth() - 1);
-			int y = MathHelper.clampInt(e.getY(), 0, frame.getHeight() - 1);
+			int x = MathHelper.clampInt(e.getX(), 0, BaseFrame.FULL_SCREEN_CANVAS.width - 1);
+			int y = MathHelper.clampInt(e.getY(), 0, BaseFrame.FULL_SCREEN_CANVAS.height - 1);
 			frame.mouseMoved(new Point(x, y));
 		}
 	}

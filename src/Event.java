@@ -65,14 +65,15 @@ public abstract class Event {
 	}
 
 	public static class KeyChange extends Event {
-		private final Set<Integer> pressedKeys;
 		public final int key;
 		public final boolean pressed; //or release
 
+		private final Set<Integer> pressedKeys;
+
 		public KeyChange(int key, boolean pressed, Set<Integer> pressedKeys) {
-			this.pressedKeys = pressedKeys;
 			this.key = key;
 			this.pressed = pressed;
+			this.pressedKeys = pressedKeys;
 		}
 
 		@Override

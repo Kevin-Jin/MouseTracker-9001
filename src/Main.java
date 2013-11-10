@@ -12,12 +12,9 @@ public class Main {
 			System.exit(1);
 		}
 
-		// Construct the example object and initialize native hook.
 		InputListener listener = new InputListener();
 		GlobalScreen.getInstance().addNativeKeyListener(listener);
 		GlobalScreen.getInstance().addNativeMouseListener(listener);
 		GlobalScreen.getInstance().addNativeMouseMotionListener(listener);
-		listener.frame.setVisible(true);
-		listener.frame.setVisible(false);
 	}
 }
