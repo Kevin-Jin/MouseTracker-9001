@@ -19,6 +19,7 @@ import javax.swing.SwingUtilities;
 public class BaseFrame extends JFrame {
 	private final InnerPanel innerPanel;
 	private volatile long startTime;
+	private volatile boolean playing;
 
 	private final Set<Integer> pressedKeys = new HashSet<Integer>();
 	private final ConcurrentNavigableMap<Long, Event> events = new ConcurrentSkipListMap<Long, Event>();
@@ -33,7 +34,6 @@ public class BaseFrame extends JFrame {
 		innerPanel = new InnerPanel();
 		getContentPane().add(innerPanel);
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-
 		startTime = System.currentTimeMillis();
 	}
 
@@ -78,6 +78,7 @@ public class BaseFrame extends JFrame {
 		new Thread(new Runnable() {
 			public void run() {
 				startTime = System.currentTimeMillis();
+				playing = true;
 				while (!events.isEmpty()) {
 					repaint();
 					try {
@@ -86,6 +87,7 @@ public class BaseFrame extends JFrame {
 						e.printStackTrace();
 					}
 				}
+				playing = false;
 			}
 		}).start();
 	}
@@ -117,6 +119,8 @@ public class BaseFrame extends JFrame {
 			g.fillRect(0, 0, getWidth(), getHeight());
 			long now = System.currentTimeMillis();
 			Point p = null;
+			if(!playing)
+				return;
 			for (Iterator<Map.Entry<Long, Event>> iter = events.headMap(Long.valueOf(System.currentTimeMillis() - startTime), true).entrySet().iterator(); iter.hasNext(); ) {
 				Map.Entry<Long, Event> entry = iter.next();
 				if (!entry.getValue().draw((Graphics2D) g, Math.max(0, now - startTime - entry.getKey()), p))
