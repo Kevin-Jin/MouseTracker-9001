@@ -1,7 +1,11 @@
 import java.awt.Color;
+import java.awt.Font;
+import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.util.Set;
+
+import org.jnativehook.keyboard.NativeKeyEvent;
 
 public abstract class Event {
 	public abstract boolean draw(Graphics2D g, long dT, Object... args);
@@ -65,20 +69,58 @@ public abstract class Event {
 	}
 
 	public static class KeyChange extends Event {
+		private static final Font font = new Font("Arial", Font.PLAIN, 150);
+
 		public final int key;
 		public final boolean pressed; //or release
 
-		private final Set<Integer> pressedKeys;
+		private final long timestamp;
+		private final Set<Character> currentlyPressedKeys;
 
-		public KeyChange(int key, boolean pressed, Set<Integer> pressedKeys) {
+		private volatile KeyChange complement;
+		private volatile char keyChar;
+
+		public KeyChange(int key, boolean pressed, long timestamp, Set<Character> currentlyPressedKeys, KeyChange complement) {
 			this.key = key;
 			this.pressed = pressed;
-			this.pressedKeys = pressedKeys;
+			this.timestamp = timestamp;
+			this.currentlyPressedKeys = currentlyPressedKeys;
+			this.complement = complement;
+			this.keyChar = NativeKeyEvent.CHAR_UNDEFINED;
+		}
+
+		public void setKeyChar(char keyChar) {
+			this.keyChar = keyChar;
+		}
+
+		private void drawString(Graphics g) {
+			StringBuilder sb = new StringBuilder(currentlyPressedKeys.size());
+			for (Character c : currentlyPressedKeys)
+				sb.append(c);
+			String str = sb.toString();
+			g.setFont(font);
+			g.setColor(new Color(0, 0, 0, 255));
+			g.drawString(str, (BaseFrame.FULL_SCREEN_CANVAS.width - g.getFontMetrics().stringWidth(str)) / 2, (BaseFrame.FULL_SCREEN_CANVAS.height) / 2 + g.getFontMetrics().getMaxDescent());
 		}
 
 		@Override
 		public boolean draw(Graphics2D g, long dT, Object... args) {
-			return pressed && pressedKeys.contains(Integer.valueOf(key));
+			//if complement is null when pressed, then there was no corresponding release event, so keep drawing this character
+			boolean draw = pressed && (complement == null || timestamp + dT < complement.timestamp);
+			if (complement != null)
+				complement.keyChar = keyChar;
+			if (pressed && keyChar != NativeKeyEvent.CHAR_UNDEFINED) {
+				currentlyPressedKeys.add(Character.valueOf(keyChar));
+				drawString(g);
+			} else {
+				currentlyPressedKeys.remove(Character.valueOf(keyChar));
+				drawString(g);
+			}
+			return draw;
+		}
+
+		public void setReleasedEvent(KeyChange releasedKeyEvent) {
+			this.complement = releasedKeyEvent;
 		}
 	}
 }

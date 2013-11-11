@@ -9,7 +9,14 @@ import org.jnativehook.mouse.NativeMouseInputListener;
 public class InputListener implements NativeKeyListener, NativeMouseInputListener {
 	private final BaseFrame frame;
 
-	private boolean isRecording, isPlayingBack;
+	/**
+	 * This variable can be accessed only by the JNativeHook thread.
+	 */
+	private boolean isRecording;
+	/**
+	 * This variable can be accessed only by the JNativeHook thread.
+	 */
+	private boolean isPlayingBack;
 
 	public InputListener() {
 		frame = new BaseFrame();
@@ -52,7 +59,9 @@ public class InputListener implements NativeKeyListener, NativeMouseInputListene
 	}
 
 	@Override
-	public void nativeKeyTyped(NativeKeyEvent e) { }
+	public void nativeKeyTyped(NativeKeyEvent e) {
+		frame.keyEvent(e.getKeyChar());
+	}
 
 	@Override
 	public void nativeMouseClicked(NativeMouseEvent e) { }

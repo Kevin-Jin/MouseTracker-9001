@@ -4,8 +4,10 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Point;
 import java.awt.Toolkit;
-import java.util.HashSet;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentNavigableMap;
@@ -13,7 +15,6 @@ import java.util.concurrent.ConcurrentSkipListMap;
 
 import javax.swing.JFrame;
 import javax.swing.JPanel;
-import javax.swing.SwingUtilities;
 
 @SuppressWarnings("serial")
 public class BaseFrame extends JFrame {
@@ -23,11 +24,19 @@ public class BaseFrame extends JFrame {
 	private static final Dimension HIDDEN_CANVAS = new Dimension(0, 0);
 
 	private final EventPainter innerPanel;
-	private final Set<Integer> pressedKeys;
+	/**
+	 * This Collection can be accessed only by the JNativeHook thread.
+	 */
+	private final Map<Integer, Event.KeyChange> pressedKeyEvents;
 	private final ConcurrentNavigableMap<Long, Event> events;
+	private final Set<Character> currentlyPressedKeys;
 
 	private volatile long startTime;
 	private volatile boolean playing;
+	/**
+	 * This variable can be accessed only by the JNativeHook thread.
+	 */
+	private Event.KeyChange lastPressedKeyEvent;
 
 	public BaseFrame() {
 		super("Y-Hack 2013");
@@ -43,47 +52,46 @@ public class BaseFrame extends JFrame {
 		getContentPane().add(innerPanel);
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
-		pressedKeys = new HashSet<Integer>();
+		pressedKeyEvents = new HashMap<Integer, Event.KeyChange>();
 		events = new ConcurrentSkipListMap<Long, Event>();
+		currentlyPressedKeys = Collections.synchronizedSet(new LinkedHashSet<Character>());
 
 		startTime = System.currentTimeMillis();
+		playing = false;
 	}
 
-	public void mouseMoved(final Point p) {
-		SwingUtilities.invokeLater(new Runnable() {
-			@Override
-			public void run() {
-				long time = System.currentTimeMillis() - startTime;
-				events.put(Long.valueOf(time), new Event.MouseMoved(p));
-			}
-		});
+	public void mouseMoved(Point p) {
+		long time = System.currentTimeMillis() - startTime;
+		events.put(Long.valueOf(time), new Event.MouseMoved(p));
 	}
 
-	public void keyEvent(final int keycode, final boolean pressed) {
-		SwingUtilities.invokeLater(new Runnable() {
-			@Override
-			public void run() {
-				long time = System.currentTimeMillis() - startTime;
-				if (pressed)
-					pressedKeys.add(Integer.valueOf(keycode));
-				else
-					pressedKeys.remove(Integer.valueOf(keycode));
-				events.put(Long.valueOf(time), new Event.KeyChange(keycode, pressed, pressedKeys));				
-			}
-		});
+	public void keyEvent(int keycode, boolean pressed) {
+		long time = System.currentTimeMillis() - startTime;
+		Event.KeyChange ev;
+		if (pressed) {
+			ev = new Event.KeyChange(keycode, true, time, currentlyPressedKeys, null);
+			pressedKeyEvents.put(Integer.valueOf(keycode), ev);
+			lastPressedKeyEvent = ev;
+		} else {
+			Event.KeyChange pressedEvent = pressedKeyEvents.get(Integer.valueOf(keycode));
+			ev = new Event.KeyChange(keycode, false, time, currentlyPressedKeys, pressedEvent);
+			if (pressedEvent != null)
+				pressedEvent.setReleasedEvent(ev);
+		}
+		events.put(Long.valueOf(time), ev);
 	}
 
-	public void mouseEvent(final int x, final int y, final boolean left, final boolean pressed) {
-		SwingUtilities.invokeLater(new Runnable() {
-			@Override
-			public void run() {
-				long time = System.currentTimeMillis() - startTime;
-				if (pressed)
-					events.put(Long.valueOf(time), new Event.MousePressed(new Point(x, y), left));
-				else
-					events.put(Long.valueOf(time), new Event.MouseReleased(new Point(x, y), left));
-			}
-		});
+	public void keyEvent(char keyChar) {
+		if (lastPressedKeyEvent != null)
+			lastPressedKeyEvent.setKeyChar(keyChar);
+	}
+
+	public void mouseEvent(int x, int y, boolean left, boolean pressed) {
+		long time = System.currentTimeMillis() - startTime;
+		if (pressed)
+			events.put(Long.valueOf(time), new Event.MousePressed(new Point(x, y), left));
+		else
+			events.put(Long.valueOf(time), new Event.MouseReleased(new Point(x, y), left));
 	}
 
 	public void startPlayback() {
@@ -112,15 +120,11 @@ public class BaseFrame extends JFrame {
 	}
 
 	public void endPlaybackAndReset() {
-		SwingUtilities.invokeLater(new Runnable() {
-			@Override
-			public void run() {
-				events.clear();
-				playing = false;
+		currentlyPressedKeys.clear();
+		events.clear();
+		playing = false;
 
-				startTime = System.currentTimeMillis();
-			}
-		});
+		startTime = System.currentTimeMillis();
 	}
 
 	public void hideCanvas() {
@@ -142,7 +146,10 @@ public class BaseFrame extends JFrame {
 		setState(NORMAL);
 	}
 
-	private final class EventPainter extends JPanel {
+	private class EventPainter extends JPanel {
+		/**
+		 * This variable can be accessed only by the Swing EDT.
+		 */
 		private boolean hide;
 
 		public EventPainter() {
@@ -156,7 +163,7 @@ public class BaseFrame extends JFrame {
 			g2.setComposite(AlphaComposite.getInstance(AlphaComposite.CLEAR));
 			g2.fillRect(0, 0, getWidth(), getHeight());
 			g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER));
-			g2.setColor(new Color(0, 0, 0, 0.5f));
+			g2.setColor(new Color(0, 0, 0, 255 / 2));
 			g2.fillRect(0, 0, getWidth(), getHeight());*/
 
 			if (!playing) {
