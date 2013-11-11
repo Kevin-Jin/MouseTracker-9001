@@ -27,10 +27,10 @@ public abstract class Event {
 		public boolean draw(Graphics2D g, long dT, Object... args) {
 			if (args[0] != null) {
 				Point p2 = (Point)args[0];
-				float r = dT / 1000.0f;
-				if (r > 1)
-					r = 1;
-				g.setColor(new Color(1-r, 0, r));
+				float b = dT / 1000.0f;
+				if (b > 1)
+					b = 1;
+				g.setColor(new Color(1 - b, 0, b));
 				g.drawLine(p.x, p.y, p2.x, p2.y);
 			}
 			return dT < 1000;
@@ -38,7 +38,7 @@ public abstract class Event {
 	}
 
 	public static class MousePressed extends MouseEvent {
-		public final boolean left; 
+		public final boolean left;
 
 		public MousePressed(Point p, boolean left) {
 			super(p);
@@ -47,9 +47,11 @@ public abstract class Event {
 
 		@Override
 		public boolean draw(Graphics2D g, long dT, Object... args) {
-			int size = (int) Math.min(dT / 30, 30);
-			size = 30 - size;
-			g.drawOval(p.x - size/2, p.y - size/2, size, size);
+			int size = 30 - (int)Math.min(dT / 30, 30);
+			if (left)
+				g.drawOval(p.x - size/2, p.y - size/2, size, size);
+			else
+				g.drawRect(p.x - size/2, p.y - size/2, size, size);
 			return size > 0;
 		}
 	}
